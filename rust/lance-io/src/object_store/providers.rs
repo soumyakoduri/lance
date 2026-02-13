@@ -28,6 +28,8 @@ pub mod local;
 pub mod memory;
 #[cfg(feature = "oss")]
 pub mod oss;
+#[cfg(feature = "rgw-sal")]
+pub mod sal;
 
 #[async_trait::async_trait]
 pub trait ObjectStoreProvider: std::fmt::Debug + Sync + Send {
@@ -79,6 +81,7 @@ pub trait ObjectStoreProvider: std::fmt::Debug + Sync + Send {
 /// - `s3+ddb`: An S3 object store with DynamoDB for metadata.
 /// - `az`: An Azure Blob Storage object store.
 /// - `gs`: A Google Cloud Storage object store.
+/// - `sal`: A Ceph RGW SAL object store (requires `rgw-sal` feature).
 ///
 /// Use [`Self::empty()`] to create an empty registry, with no providers registered.
 ///
@@ -276,6 +279,8 @@ impl Default for ObjectStoreRegistry {
         providers.insert("oss".into(), Arc::new(oss::OssStoreProvider));
         #[cfg(feature = "huggingface")]
         providers.insert("hf".into(), Arc::new(huggingface::HuggingfaceStoreProvider));
+        #[cfg(feature = "rgw-sal")]
+        providers.insert("sal".into(), Arc::new(sal::SalStoreProvider));
         Self {
             providers: RwLock::new(providers),
             active_stores: RwLock::new(HashMap::new()),
