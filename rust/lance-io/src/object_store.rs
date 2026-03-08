@@ -35,6 +35,8 @@ use url::Url;
 use super::local::LocalObjectReader;
 mod list_retry;
 pub mod providers;
+#[cfg(feature = "rgw")]
+pub mod rgw;
 pub mod storage_options;
 mod tracing;
 use crate::object_reader::SmallReader;
@@ -69,6 +71,8 @@ pub use storage_options::{
     EXPIRES_AT_MILLIS_KEY, LanceNamespaceStorageOptionsProvider, REFRESH_OFFSET_MILLIS_KEY,
     StorageOptionsAccessor, StorageOptionsProvider,
 };
+#[cfg(feature = "rgw")]
+pub use rgw::{RGWObjectStore, RgwError};
 
 #[async_trait]
 pub trait ObjectStoreExt {
