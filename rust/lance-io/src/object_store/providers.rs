@@ -30,6 +30,8 @@ pub mod local;
 pub mod memory;
 #[cfg(feature = "oss")]
 pub mod oss;
+#[cfg(feature = "rgw")]
+pub mod rgw;
 #[cfg(feature = "tencent")]
 pub mod tencent;
 
