@@ -384,3 +384,385 @@ unsafe extern "C" {
     /// - results must not be used after this call
     pub fn rgw_free_ranges(results: *mut RGWRangeResult, num_ranges: u32);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+    use std::ptr;
+
+    /// Test that all FFI symbols are linked correctly.
+    /// This test verifies the linker can resolve all RGW SAL C API symbols.
+    /// It doesn't call the functions (that would require a real driver),
+    /// but ensures the symbols exist in the linked libraries.
+    #[test]
+    fn test_ffi_symbols_linked() {
+        // Get function pointers to verify symbols are linked
+        // This will fail at link time if symbols are missing
+        let _put_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+            u64,
+            *mut c_void,
+            *const RGWPutConditionals,
+            *mut *mut c_char,
+        ) -> c_int = rgw_put_object;
+
+        let _get_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            u64,
+            u64,
+            *mut RGWGetConditionals,
+            *mut *mut c_char,
+            *mut u64,
+            *mut RGWObjectMeta,
+        ) -> c_int = rgw_get_object;
+
+        let _delete_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+        ) -> c_int = rgw_delete_object;
+
+        let _list_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+            c_int,
+            *mut RGWListResult,
+        ) -> c_int = rgw_list_objects;
+
+        let _copy_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+        ) -> c_int = rgw_copy_object;
+
+        let _delete_multi_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const *const c_char,
+            u32,
+        ) -> c_int = rgw_delete_objects;
+
+        let _get_ranges_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const RGWRange,
+            u32,
+            *mut *mut RGWRangeResult,
+            *mut u32,
+        ) -> c_int = rgw_get_object_ranges;
+
+        // Multipart operations
+        let _init_multipart_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *mut *mut c_char,
+        ) -> c_int = rgw_init_multipart;
+
+        let _put_part_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+            u64,
+            *const c_char,
+            u64,
+            *mut *mut c_char,
+        ) -> c_int = rgw_multipart_put_part;
+
+        let _complete_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+            *const *const c_char,
+            u32,
+            *mut *mut c_char,
+        ) -> c_int = rgw_multipart_complete;
+
+        let _abort_fn: unsafe extern "C" fn(
+            *mut c_void,
+            *const c_void,
+            *const c_char,
+            *const c_char,
+            *const c_char,
+        ) -> c_int = rgw_multipart_abort;
+
+        // Memory management
+        let _free_buffer_fn: unsafe extern "C" fn(*mut c_char) = rgw_free_buffer;
+        let _free_string_fn: unsafe extern "C" fn(*mut c_char) = rgw_free_string;
+        let _list_result_free_fn: unsafe extern "C" fn(*mut RGWListResult) = rgw_list_result_free;
+        let _meta_free_fn: unsafe extern "C" fn(*mut RGWObjectMeta) = rgw_object_meta_free;
+        let _free_ranges_fn: unsafe extern "C" fn(*mut RGWRangeResult, u32) = rgw_free_ranges;
+
+        // If we get here, all symbols are linked
+        println!("All RGW SAL C API symbols successfully linked!");
+    }
+
+    /// Test that FFI struct layouts match expected sizes.
+    /// This helps catch ABI mismatches between Rust and C.
+    #[test]
+    fn test_ffi_struct_sizes() {
+        // RGWPutConditionals: 2 pointers
+        assert_eq!(
+            std::mem::size_of::<RGWPutConditionals>(),
+            2 * std::mem::size_of::<*const c_char>(),
+            "RGWPutConditionals size mismatch"
+        );
+
+        // RGWGetConditionals: 2 pointers + 2 i64s
+        assert_eq!(
+            std::mem::size_of::<RGWGetConditionals>(),
+            2 * std::mem::size_of::<*const c_char>() + 2 * std::mem::size_of::<i64>(),
+            "RGWGetConditionals size mismatch"
+        );
+
+        // RGWObjectMeta: u64 + i64 + i64 + pointer
+        assert_eq!(
+            std::mem::size_of::<RGWObjectMeta>(),
+            std::mem::size_of::<u64>()
+                + std::mem::size_of::<i64>()
+                + std::mem::size_of::<i64>()
+                + std::mem::size_of::<*mut c_char>(),
+            "RGWObjectMeta size mismatch"
+        );
+
+        // RGWRange: 2 u64s
+        assert_eq!(
+            std::mem::size_of::<RGWRange>(),
+            2 * std::mem::size_of::<u64>(),
+            "RGWRange size mismatch"
+        );
+
+        // RGWRangeResult: pointer + u64
+        assert_eq!(
+            std::mem::size_of::<RGWRangeResult>(),
+            std::mem::size_of::<*mut c_char>() + std::mem::size_of::<u64>(),
+            "RGWRangeResult size mismatch"
+        );
+
+        println!("All FFI struct sizes match expected values!");
+    }
+
+    /// Test that struct alignment is correct for FFI.
+    #[test]
+    fn test_ffi_struct_alignment() {
+        // All structs should have pointer alignment (8 bytes on 64-bit)
+        assert!(
+            std::mem::align_of::<RGWPutConditionals>() >= std::mem::align_of::<*const c_void>(),
+            "RGWPutConditionals alignment too small"
+        );
+        assert!(
+            std::mem::align_of::<RGWGetConditionals>() >= std::mem::align_of::<*const c_void>(),
+            "RGWGetConditionals alignment too small"
+        );
+        assert!(
+            std::mem::align_of::<RGWObjectMeta>() >= std::mem::align_of::<*const c_void>(),
+            "RGWObjectMeta alignment too small"
+        );
+        assert!(
+            std::mem::align_of::<RGWObjectEntry>() >= std::mem::align_of::<*const c_void>(),
+            "RGWObjectEntry alignment too small"
+        );
+        assert!(
+            std::mem::align_of::<RGWListResult>() >= std::mem::align_of::<*const c_void>(),
+            "RGWListResult alignment too small"
+        );
+
+        println!("All FFI struct alignments are correct!");
+    }
+
+    /// Test that null driver/dpp pointers are handled (returns error).
+    /// This tests that the C API properly validates inputs.
+    #[test]
+    fn test_null_driver_returns_error() {
+        let bucket = CString::new("test-bucket").unwrap();
+        let key = CString::new("test-key").unwrap();
+        let data = b"test data";
+
+        let mut etag_ptr: *mut c_char = ptr::null_mut();
+
+        // Call with null driver - should return error (negative errno)
+        let ret = unsafe {
+            rgw_put_object(
+                ptr::null_mut(), // null driver
+                ptr::null(),     // null dpp
+                bucket.as_ptr(),
+                key.as_ptr(),
+                data.as_ptr() as *const c_char,
+                data.len() as u64,
+                ptr::null_mut(),
+                ptr::null(),
+                &mut etag_ptr,
+            )
+        };
+
+        // Should return negative errno (EINVAL or similar)
+        assert!(
+            ret < 0,
+            "Expected negative errno for null driver, got {}",
+            ret
+        );
+        println!(
+            "Null driver correctly rejected with errno: {}",
+            ret
+        );
+    }
+
+    /// Test GET with null driver returns error.
+    #[test]
+    fn test_get_null_driver_returns_error() {
+        let bucket = CString::new("test-bucket").unwrap();
+        let key = CString::new("test-key").unwrap();
+
+        let mut buffer_ptr: *mut c_char = ptr::null_mut();
+        let mut bytes_read: u64 = 0;
+        let mut meta = RGWObjectMeta {
+            size: 0,
+            mtime_sec: 0,
+            mtime_nsec: 0,
+            etag: ptr::null_mut(),
+        };
+
+        let ret = unsafe {
+            rgw_get_object(
+                ptr::null_mut(), // null driver
+                ptr::null(),     // null dpp
+                bucket.as_ptr(),
+                key.as_ptr(),
+                0,  // offset
+                0,  // len (0 = read all)
+                ptr::null_mut(),
+                &mut buffer_ptr,
+                &mut bytes_read,
+                &mut meta,
+            )
+        };
+
+        assert!(
+            ret < 0,
+            "Expected negative errno for null driver GET, got {}",
+            ret
+        );
+        println!(
+            "Null driver GET correctly rejected with errno: {}",
+            ret
+        );
+    }
+
+    /// Test DELETE with null driver returns error.
+    #[test]
+    fn test_delete_null_driver_returns_error() {
+        let bucket = CString::new("test-bucket").unwrap();
+        let key = CString::new("test-key").unwrap();
+
+        let ret = unsafe {
+            rgw_delete_object(
+                ptr::null_mut(), // null driver
+                ptr::null(),     // null dpp
+                bucket.as_ptr(),
+                key.as_ptr(),
+            )
+        };
+
+        assert!(
+            ret < 0,
+            "Expected negative errno for null driver DELETE, got {}",
+            ret
+        );
+        println!(
+            "Null driver DELETE correctly rejected with errno: {}",
+            ret
+        );
+    }
+
+    /// Test LIST with null driver returns error.
+    #[test]
+    fn test_list_null_driver_returns_error() {
+        let bucket = CString::new("test-bucket").unwrap();
+        let prefix = CString::new("").unwrap();
+
+        let mut result = RGWListResult {
+            entries: ptr::null_mut(),
+            num_objects: 0,
+            common_prefixes: ptr::null_mut(),
+            num_common_prefixes: 0,
+            next_marker: ptr::null_mut(),
+            is_truncated: 0,
+        };
+
+        let ret = unsafe {
+            rgw_list_objects(
+                ptr::null_mut(), // null driver
+                ptr::null(),     // null dpp
+                bucket.as_ptr(),
+                prefix.as_ptr(),
+                ptr::null(), // delimiter
+                ptr::null(), // marker
+                1000,
+                &mut result,
+            )
+        };
+
+        assert!(
+            ret < 0,
+            "Expected negative errno for null driver LIST, got {}",
+            ret
+        );
+        println!(
+            "Null driver LIST correctly rejected with errno: {}",
+            ret
+        );
+    }
+
+    /// Test multipart init with null driver returns error.
+    #[test]
+    fn test_multipart_init_null_driver_returns_error() {
+        let bucket = CString::new("test-bucket").unwrap();
+        let key = CString::new("test-key").unwrap();
+
+        let mut upload_id: *mut c_char = ptr::null_mut();
+
+        let ret = unsafe {
+            rgw_init_multipart(
+                ptr::null_mut(), // null driver
+                ptr::null(),     // null dpp
+                bucket.as_ptr(),
+                key.as_ptr(),
+                &mut upload_id,
+            )
+        };
+
+        assert!(
+            ret < 0,
+            "Expected negative errno for null driver multipart init, got {}",
+            ret
+        );
+        println!(
+            "Null driver multipart init correctly rejected with errno: {}",
+            ret
+        );
+    }
+}

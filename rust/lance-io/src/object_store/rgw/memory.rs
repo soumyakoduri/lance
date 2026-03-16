@@ -368,7 +368,8 @@ mod tests {
         let buffer = unsafe { RgwBuffer::from_raw(ptr::null_mut(), 0) };
         assert!(buffer.is_empty());
         assert_eq!(buffer.len(), 0);
-        assert_eq!(buffer.as_bytes(), &[]);
+        let empty: &[u8] = &[];
+        assert_eq!(buffer.as_bytes(), empty);
     }
 
     #[test]

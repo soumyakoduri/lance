@@ -61,6 +61,18 @@ fn configure_rgw_linking() {
     println!("cargo:rustc-link-lib=dylib=ceph-common");
     println!("cargo:rustc-link-lib=dylib=rados");
 
+    // Link against system libraries required by Ceph
+    // C++ standard library (Ceph is written in C++)
+    println!("cargo:rustc-link-lib=dylib=stdc++");
+
+    // OpenSSL is required for cryptographic operations
+    println!("cargo:rustc-link-lib=dylib=crypto");
+    println!("cargo:rustc-link-lib=dylib=ssl");
+
+    // Additional system libraries commonly needed by Ceph
+    println!("cargo:rustc-link-lib=dylib=pthread");
+    println!("cargo:rustc-link-lib=dylib=resolv");
+
     // Set rpath so libraries can be found at runtime
     println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_path.display());
 
